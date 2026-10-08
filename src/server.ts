@@ -2,6 +2,8 @@ import express from "express";
 import authRouter from "./routes/auth.js";
 import userRouter from "./routes/user.js";
 import plansRouter from "./routes/plans.js";
+import investmentsRouter from "./routes/investments.js";
+import withdrawalsRouter from "./routes/withdrawals.js";
 
 const app = express();
 
@@ -9,6 +11,8 @@ app.use(express.json());
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
 app.use("/api/plans", plansRouter);
+app.use("/api/investments", investmentsRouter);
+app.use("/api/withdrawals", withdrawalsRouter);
 
 const PORT = 3000;
 
