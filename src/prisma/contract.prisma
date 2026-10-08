@@ -27,3 +27,11 @@ model Investment {
   status      String   @default("active")
   createdAt   TimestamptzString @default(now())
 }
+
+model Withdrawal {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  amount    Float
+  status    String   @default("pending")
+  createdAt TimestamptzString @default(now())
+}
