@@ -17,3 +17,13 @@ model InvestmentPlan {
   duration  Int
   createdAt TimestamptzString @default(now())
 }
+model Investment {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  planId      Int
+  amount      Float
+  return      Float
+  duration    Int
+  status      String   @default("active")
+  createdAt   TimestamptzString @default(now())
+}
