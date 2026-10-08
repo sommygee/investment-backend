@@ -8,3 +8,22 @@ model User {
   createdAt TimestamptzString @default(now())
   updatedAt temporal.updatedAtString()
 }
+
+model InvestmentPlan {
+  id        Int      @id @default(autoincrement())
+  name      String
+  amount    Float
+  return    Float
+  duration  Int
+  createdAt TimestamptzString @default(now())
+}
+model Investment {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  planId      Int
+  amount      Float
+  return      Float
+  duration    Int
+  status      String   @default("active")
+  createdAt   TimestamptzString @default(now())
+}
