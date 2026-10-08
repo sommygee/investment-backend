@@ -4,6 +4,7 @@ import userRouter from "./routes/user.js";
 import plansRouter from "./routes/plans.js";
 import investmentsRouter from "./routes/investments.js";
 import withdrawalsRouter from "./routes/withdrawals.js";
+import adminRouter from "./routes/admin.js";
 
 const app = express();
 
@@ -13,6 +14,7 @@ app.use("/api/user", userRouter);
 app.use("/api/plans", plansRouter);
 app.use("/api/investments", investmentsRouter);
 app.use("/api/withdrawals", withdrawalsRouter);
+app.use("/api/admin", adminRouter);
 
 const PORT = 3000;
 
