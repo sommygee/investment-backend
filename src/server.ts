@@ -16,7 +16,17 @@ app.use("/api/investments", investmentsRouter);
 app.use("/api/withdrawals", withdrawalsRouter);
 app.use("/api/admin", adminRouter);
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
+
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err instanceof SyntaxError && "body" in err) {
+    return res.status(400).json({
+      message: "Invalid JSON request body",
+    });
+  }
+
+  next(err);
+});
 
 app.get("/", (req, res) => {
   res.json({

@@ -13,13 +13,13 @@ export function authenticateToken(
 ) {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader) {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({
       message: "Authentication required",
     });
   }
 
-  const token = authHeader.split(" ")[1];
+  const token = authHeader.slice(7).trim();
 
   if (!token) {
     return res.status(401).json({
@@ -33,8 +33,13 @@ export function authenticateToken(
       process.env.JWT_SECRET!
     ) as { userId: number };
 
-    req.userId = decoded.userId;
+    if (!Number.isInteger(decoded.userId) || decoded.userId <= 0) {
+      return res.status(401).json({
+        message: "Invalid token payload",
+      });
+    }
 
+    req.userId = decoded.userId;
     next();
   } catch {
     return res.status(401).json({
@@ -42,6 +47,7 @@ export function authenticateToken(
     });
   }
 }
+
 export async function requireAdmin(
   req: AuthRequest,
   res: Response,

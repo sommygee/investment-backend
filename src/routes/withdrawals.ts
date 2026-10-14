@@ -1,4 +1,5 @@
 import express from "express";
+import { z } from "zod";
 import { db } from "../prisma/db.js";
 import {
   authenticateToken,
@@ -7,15 +8,22 @@ import {
 
 const router = express.Router();
 
+const withdrawalSchema = z.object({
+  amount: z.number().positive(),
+});
+
 router.post("/", authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const { amount } = req.body;
+    const result = withdrawalSchema.safeParse(req.body);
 
-    if (!amount || amount <= 0) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "Valid withdrawal amount is required",
+        message: "Invalid withdrawal details",
+        errors: result.error.issues,
       });
     }
+
+    const { amount } = result.data;
 
     const withdrawalModel = db?.orm?.public?.Withdrawal;
 
@@ -45,3 +53,4 @@ router.post("/", authenticateToken, async (req: AuthRequest, res) => {
 });
 
 export default router;
+
