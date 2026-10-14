@@ -19,6 +19,38 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *       400:
+ *         description: Invalid registration details
+ *       409:
+ *         description: Email already exists
+ */
 // Register user
 router.post("/register", async (req, res) => {
   try {
@@ -76,6 +108,38 @@ router.post("/register", async (req, res) => {
   }
 });
 
+
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Log in a user
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       400:
+ *         description: Invalid login details
+ *       401:
+ *         description: Invalid email or password
+ *       500:
+ *         description: Internal server error
+ */
 // Login user
 router.post("/login", async (req, res) => {
   try {
