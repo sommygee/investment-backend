@@ -1,20 +1,69 @@
 import express from "express";
 import bcrypt from "bcrypt";
-import { db } from "../prisma/db.js";
 import jwt from "jsonwebtoken";
-
+import { z } from "zod";
+import { db } from "../prisma/db.js";
 
 const router = express.Router();
 
+// Registration validation
+const registerSchema = z.object({
+  name: z.string().min(2).optional(),
+  email: z.string().email(),
+  password: z.string().min(8),
+});
+
+// Login validation
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *       400:
+ *         description: Invalid registration details
+ *       409:
+ *         description: Email already exists
+ */
+// Register user
 router.post("/register", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const result = registerSchema.safeParse(req.body);
 
-    if (!email || !password) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "Email and password are required",
+        message: "Invalid registration details",
+        errors: result.error.issues,
       });
     }
+
+    const { name, email, password } = result.data;
 
     const userModel = db.orm?.public?.User as any;
 
@@ -37,9 +86,9 @@ router.post("/register", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await userModel.create({
-        name,
-        email,
-        password: hashedPassword,
+      name,
+      email,
+      password: hashedPassword,
     });
 
     return res.status(201).json({
@@ -59,15 +108,51 @@ router.post("/register", async (req, res) => {
   }
 });
 
+
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Log in a user
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       400:
+ *         description: Invalid login details
+ *       401:
+ *         description: Invalid email or password
+ *       500:
+ *         description: Internal server error
+ */
+// Login user
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const result = loginSchema.safeParse(req.body);
 
-    if (!email || !password) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "Email and password are required",
+        message: "Invalid login details",
+        errors: result.error.issues,
       });
     }
+
+    const { email, password } = result.data;
 
     const userModel = db.orm?.public?.User as any;
 
@@ -99,21 +184,21 @@ router.post("/login", async (req, res) => {
     }
 
     const token = jwt.sign(
-    { userId: user.id },
-    process.env.JWT_SECRET!,
-    { expiresIn: "7d" }
+      { userId: user.id },
+      process.env.JWT_SECRET!,
+      { expiresIn: "7d" }
     );
 
-      return res.status(200).json({
+    return res.status(200).json({
       message: "Login successful",
       token,
       user: {
-      id: user.id,
-     name: user.name,
-     email: user.email,
-     role: user.role,
-       },
-      });
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
   } catch (error) {
     console.error(error);
 

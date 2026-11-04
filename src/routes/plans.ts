@@ -3,7 +3,7 @@ import { db } from "../prisma/db.js";
 
 const router = express.Router();
 
-router.get("/", async (req, res) => {
+router.get("/", async (_req, res) => {
   try {
     const plans = (await db.orm?.public?.InvestmentPlan?.all?.()) ?? [];
 

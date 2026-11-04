@@ -1,5 +1,6 @@
 import express from "express";
 import postgres from "postgres";
+import { z } from "zod";
 import { db } from "../prisma/db.js";
 import {
   authenticateToken,
@@ -8,16 +9,23 @@ import {
 } from "../middleware/auth.js";
 
 const sql = postgres(process.env.DATABASE_URL!);
-
 const router = express.Router();
+
+// Investment plan validation
+const planSchema = z.object({
+  name: z.string().trim().min(2),
+  amount: z.number().positive(),
+  return: z.number().positive(),
+  duration: z.number().int().positive(),
+});
 
 // Test admin access
 router.get(
   "/test",
   authenticateToken,
   requireAdmin,
-  (req: AuthRequest, res) => {
-    res.status(200).json({
+  (_req: AuthRequest, res) => {
+    return res.status(200).json({
       message: "Admin access confirmed",
     });
   }
@@ -28,17 +36,9 @@ router.get(
   "/users",
   authenticateToken,
   requireAdmin,
-  async (req: AuthRequest, res) => {
+  async (_req: AuthRequest, res) => {
     try {
-      const userModel = db?.orm?.public?.User;
-
-      if (!userModel) {
-        return res.status(500).json({
-          message: "Database model unavailable",
-        });
-      }
-
-      const users = await userModel.all();
+      const users = await db.orm.public.User.all();
 
       return res.status(200).json({
         users: users.map((user) => ({
@@ -51,7 +51,6 @@ router.get(
       });
     } catch (error) {
       console.error(error);
-
       return res.status(500).json({
         message: "Internal server error",
       });
@@ -74,15 +73,9 @@ router.get(
         });
       }
 
-      const userModel = db?.orm?.public?.User;
-
-      if (!userModel) {
-        return res.status(500).json({
-          message: "Database model unavailable",
-        });
-      }
-
-      const user = await userModel.where({ id: userId }).first();
+      const user = await db.orm.public.User
+        .where({ id: userId })
+        .first();
 
       if (!user) {
         return res.status(404).json({
@@ -101,7 +94,6 @@ router.get(
       });
     } catch (error) {
       console.error(error);
-
       return res.status(500).json({
         message: "Internal server error",
       });
@@ -114,24 +106,13 @@ router.get(
   "/investments",
   authenticateToken,
   requireAdmin,
-  async (req: AuthRequest, res) => {
+  async (_req: AuthRequest, res) => {
     try {
-      const investmentModel = db?.orm?.public?.Investment;
+      const investments = await db.orm.public.Investment.all();
 
-      if (!investmentModel) {
-        return res.status(500).json({
-          message: "Database model unavailable",
-        });
-      }
-
-      const investments = await investmentModel.all();
-
-      return res.status(200).json({
-        investments,
-      });
+      return res.status(200).json({ investments });
     } catch (error) {
       console.error(error);
-
       return res.status(500).json({
         message: "Internal server error",
       });
@@ -144,24 +125,13 @@ router.get(
   "/withdrawals",
   authenticateToken,
   requireAdmin,
-  async (req: AuthRequest, res) => {
+  async (_req: AuthRequest, res) => {
     try {
-      const withdrawalModel = db?.orm?.public?.Withdrawal;
+      const withdrawals = await db.orm.public.Withdrawal.all();
 
-      if (!withdrawalModel) {
-        return res.status(500).json({
-          message: "Database model unavailable",
-        });
-      }
-
-      const withdrawals = await withdrawalModel.all();
-
-      return res.status(200).json({
-        withdrawals,
-      });
+      return res.status(200).json({ withdrawals });
     } catch (error) {
       console.error(error);
-
       return res.status(500).json({
         message: "Internal server error",
       });
@@ -184,15 +154,7 @@ router.patch(
         });
       }
 
-      const withdrawalModel = db?.orm?.public?.Withdrawal;
-
-      if (!withdrawalModel) {
-        return res.status(500).json({
-          message: "Database model unavailable",
-        });
-      }
-
-      const withdrawal = await withdrawalModel
+      const withdrawal = await db.orm.public.Withdrawal
         .where({ id: withdrawalId })
         .first();
 
@@ -202,22 +164,32 @@ router.patch(
         });
       }
 
+      if (withdrawal.status !== "pending") {
+        return res.status(400).json({
+          message: "Only pending withdrawals can be approved",
+        });
+      }
+
       const result = await sql`
         UPDATE "Withdrawal"
         SET status = 'approved'
         WHERE id = ${withdrawalId}
+          AND status = 'pending'
         RETURNING id, "userId", amount, status, "createdAt"
       `;
 
-      const updatedWithdrawal = result[0];
+      if (result.length === 0) {
+        return res.status(400).json({
+          message: "Withdrawal has already been processed",
+        });
+      }
 
       return res.status(200).json({
         message: "Withdrawal approved successfully",
-        withdrawal: updatedWithdrawal,
+        withdrawal: result[0],
       });
     } catch (error) {
       console.error(error);
-
       return res.status(500).json({
         message: "Internal server error",
       });
@@ -225,6 +197,7 @@ router.patch(
   }
 );
 
+// Reject withdrawal
 router.patch(
   "/withdrawals/:id/reject",
   authenticateToken,
@@ -239,15 +212,7 @@ router.patch(
         });
       }
 
-      const withdrawalModel = db?.orm?.public?.Withdrawal;
-
-      if (!withdrawalModel) {
-        return res.status(500).json({
-          message: "Database model unavailable",
-        });
-      }
-
-      const withdrawal = await withdrawalModel
+      const withdrawal = await db.orm.public.Withdrawal
         .where({ id: withdrawalId })
         .first();
 
@@ -257,28 +222,39 @@ router.patch(
         });
       }
 
+      if (withdrawal.status !== "pending") {
+        return res.status(400).json({
+          message: "Only pending withdrawals can be rejected",
+        });
+      }
+
       const result = await sql`
         UPDATE "Withdrawal"
         SET status = 'rejected'
         WHERE id = ${withdrawalId}
+          AND status = 'pending'
         RETURNING id, "userId", amount, status, "createdAt"
       `;
 
-      const updatedWithdrawal = result[0];
+      if (result.length === 0) {
+        return res.status(400).json({
+          message: "Withdrawal has already been processed",
+        });
+      }
 
       return res.status(200).json({
         message: "Withdrawal rejected successfully",
-        withdrawal: updatedWithdrawal,
+        withdrawal: result[0],
       });
     } catch (error) {
       console.error(error);
-
       return res.status(500).json({
         message: "Internal server error",
       });
     }
   }
 );
+
 // Add investment plan
 router.post(
   "/plans",
@@ -286,23 +262,23 @@ router.post(
   requireAdmin,
   async (req: AuthRequest, res) => {
     try {
-      const { name, amount, return: planReturn, duration } = req.body;
+      const result = planSchema.safeParse(req.body);
 
-      if (!name || !amount || !planReturn || !duration) {
+      if (!result.success) {
         return res.status(400).json({
-          message: "Name, amount, return, and duration are required",
+          message: "Invalid investment plan details",
+          errors: result.error.issues,
         });
       }
 
-      const investmentPlanModel = db?.orm?.public?.InvestmentPlan;
+      const {
+        name,
+        amount,
+        return: planReturn,
+        duration,
+      } = result.data;
 
-      if (!investmentPlanModel) {
-        return res.status(500).json({
-          message: "Database model unavailable",
-        });
-      }
-
-      const plan = await investmentPlanModel.create({
+      const plan = await db.orm.public.InvestmentPlan.create({
         name,
         amount,
         return: planReturn,
@@ -315,7 +291,6 @@ router.post(
       });
     } catch (error) {
       console.error(error);
-
       return res.status(500).json({
         message: "Internal server error",
       });
@@ -338,23 +313,16 @@ router.patch(
         });
       }
 
-      const { name, amount, return: planReturn, duration } = req.body;
+      const result = planSchema.safeParse(req.body);
 
-      if (!name || !amount || !planReturn || !duration) {
+      if (!result.success) {
         return res.status(400).json({
-          message: "Name, amount, return, and duration are required",
+          message: "Invalid investment plan details",
+          errors: result.error.issues,
         });
       }
 
-      const planModel = db?.orm?.public?.InvestmentPlan;
-
-      if (!planModel) {
-        return res.status(500).json({
-          message: "Database model unavailable",
-        });
-      }
-
-      const existingPlan = await planModel
+      const existingPlan = await db.orm.public.InvestmentPlan
         .where({ id: planId })
         .first();
 
@@ -364,7 +332,14 @@ router.patch(
         });
       }
 
-      const result = await sql`
+      const {
+        name,
+        amount,
+        return: planReturn,
+        duration,
+      } = result.data;
+
+      const updated = await sql`
         UPDATE "InvestmentPlan"
         SET
           name = ${name},
@@ -377,11 +352,10 @@ router.patch(
 
       return res.status(200).json({
         message: "Investment plan updated successfully",
-        plan: result[0],
+        plan: updated[0],
       });
     } catch (error) {
       console.error(error);
-
       return res.status(500).json({
         message: "Internal server error",
       });

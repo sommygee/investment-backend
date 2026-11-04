@@ -1,4 +1,5 @@
 import express from "express";
+import { z } from "zod";
 import { db } from "../prisma/db.js";
 import {
   authenticateToken,
@@ -7,15 +8,22 @@ import {
 
 const router = express.Router();
 
+const investmentSchema = z.object({
+  planId: z.number().int().positive(),
+});
+
 router.post("/", authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const { planId } = req.body;
+    const result = investmentSchema.safeParse(req.body);
 
-    if (!planId) {
+    if (!result.success) {
       return res.status(400).json({
-        message: "Plan ID is required",
+        message: "Invalid investment details",
+        errors: result.error.issues,
       });
     }
+
+    const { planId } = result.data;
 
     const investmentPlanModel = db.orm?.public?.InvestmentPlan;
 
@@ -62,6 +70,7 @@ router.post("/", authenticateToken, async (req: AuthRequest, res) => {
     });
   }
 });
+
 router.get("/", authenticateToken, async (req: AuthRequest, res) => {
   try {
     const investmentModel = db.orm?.public?.Investment;
